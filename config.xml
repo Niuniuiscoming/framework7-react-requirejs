@@ -1,0 +1,27 @@
+<?xml version='1.0' encoding='utf-8'?>
+<widget id="com.zlzkj.testplugin" version="0.0.1" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">
+    <name>test-plugin</name>
+    <description>
+        
+    </description>
+    <author email="wq@zlzkj.com" href="http://www.zlzkj.com">
+        Zlz Team
+    </author>
+    <content src="index.html" />
+    <access origin="*" />
+    
+    <platform name="android">
+    	<icon src="res/android/icon64.png" />
+        <icon src="res/android/icon36.png" density="ldpi" />
+        <icon src="res/android/icon48.png" density="mdpi" />
+        <icon src="res/android/icon64.png" density="hdpi" />
+        <icon src="res/android/icon96.png" density="xhdpi" />
+        <splash src="res/screen/android/splash.png" />
+        <splash src="res/screen/android/splash.png" density="port-hdpi"/>
+	    <splash src="res/screen/android/splash.png" density="port-ldpi"/>
+	    <splash src="res/screen/android/splash.png" density="port-mdpi"/>
+	    <splash src="res/screen/android/splash.png" density="port-xhdpi"/>
+    </platform>
+    <preference name="SplashScreen" value="screen" />
+    <preference name="SplashScreenDelay" value="3000" />
+</widget>

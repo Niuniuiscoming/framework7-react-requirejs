@@ -1,0 +1,7 @@
+/.idea
+/.tmp
+/out
+/node_modules
+/platforms/*
+/www/build
+/www_src/build
