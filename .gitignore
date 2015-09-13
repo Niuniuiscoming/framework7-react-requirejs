@@ -3,5 +3,5 @@
 /out
 /node_modules
 /platforms/*
-/www/build
+/www/*
 /www_src/build
