@@ -1,6 +1,6 @@
 define(function() {
 
-	var $$ = Dom7;
+	window.$$ = $$ = Dom7;
 
 	$$(document).on('pageBeforeInit', function (e) {
 		var page = e.detail.page;

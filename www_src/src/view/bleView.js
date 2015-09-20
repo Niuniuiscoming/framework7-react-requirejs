@@ -9,6 +9,21 @@ define(["app", "plugins", "common/pubsub"], function(app, plugins, pubsub) {
                 <div className="page-content">
                     <ScanBtn/>
                     <DeviceList/>
+                    <div className="list-block">
+                      <ul>
+                        <li>
+                          <div className="item-content">
+                            <div className="item-inner">
+                              <div className="item-input">
+                                <input id="myInput" type="text" placeholder="Commond" />
+                              </div>
+                            </div>
+                          </div>
+                        </li>
+                      </ul>
+                    </div>
+                    <div ref="resultDiv">
+                    </div>
                 </div>
             );
         },
@@ -16,7 +31,6 @@ define(["app", "plugins", "common/pubsub"], function(app, plugins, pubsub) {
 
     var ScanBtn = React.createClass({
         render: function() {
-            var blePath = app.path('ble');
             return (
                 <p><a href="#" className="button" onClick={this.handleScan}>{this.state.scanLabel}</a></p>
             );
@@ -97,55 +111,72 @@ define(["app", "plugins", "common/pubsub"], function(app, plugins, pubsub) {
     var UploadBtn = React.createClass({
         getInitialState: function() {
             return {
-                status: 'unConnected',
-                label: '上传数据',
-                btnDisabled: false
+                label: '上传数据'
             };
         },
         handleConnect: function(i) {
             var that = this;
             that.setState({
-                status: "connecting",
-                label: '连接中...',
-                btnDisabled: true
+                label: '正在连接'
             });
             plugins.ble.connect(discoveredDevices[i].id, function(peripheral){
                 that.setState({
-                    status: "connected",
                     label: '连接成功'
                 });
-                console.log(JSON.stringify(peripheral));
+                // console.log(JSON.stringify(peripheral));
+                //禁用所有上传按钮
+                $$(".button").addClass('disabled');
                 that.handleSendData(peripheral);
+            }, function(errorMsg){
+                alert('连接失败：' + errorMsg + '，请重试');
+                that.setState({
+                    label: '上传数据'
+                });
             });
         },
         handleDisconnect: function(deviceId) {
             var that = this;
-            plugins.ble.disconnect(deviceId, function(){
-                that.setState({
-                    status: 'unConnected',
-                    label: '上传数据',
-                    btnDisabled: false
-                });
+            plugins.ble.disconnect(deviceId);
+            that.setState({
+                label: '上传数据'
             });
+            $$(".button").removeClass('disabled');
         },
         handleSendData: function(peripheral) {
             var that = this;
-            var data = plugins.ble.stringToBytes("bbb");
+            var data = $$('#myInput').val();
             plugins.ble.write(peripheral, data, function(){
-                alert("send ok!");
-                that.handleDisconnect(peripheral.id);
+                // console.log('data sended:'+data);
+                that.setState({
+                    label: '等待响应'
+                });
+                that.handleReceiveData(peripheral);
             }, function(errorMsg){
-                // alert("指令发送失败:" + errorMsg);
+                alert("指令\"" + data + "\"发送失败:" + errorMsg);
                 that.handleDisconnect(peripheral.id);
             });
         },
+        handleReceiveData: function(peripheral) {
+            var that = this;
+            var isReceived = false;
+            plugins.ble.startNotify(peripheral, function(data){
+                alert("接收成功:" + data);
+                that.handleDisconnect(peripheral.id);
+                isReceived = true;
+            }, function(errorMsg){
+                alert("接收失败:" + errorMsg);
+                that.handleDisconnect(peripheral.id);
+            });
+            setTimeout(function(){
+                if (!isReceived) {
+                    alert("等待超时，15秒内设备未响应");
+                    that.handleDisconnect(peripheral.id);
+                }
+            },15000);
+        },
         render: function() {
-            var className = "button active";
-            if (this.state.btnDisabled) {
-                className = "button active disabled";
-            }
             return (
-                <a href="#" className={className} onClick={this.handleConnect.bind(this, this.props.seq)}>{this.state.label}</a>
+                <a href="#" className="button color-blue" onClick={this.handleConnect.bind(this, this.props.seq)}>{this.state.label}</a>
             );
         },
     });

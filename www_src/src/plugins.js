@@ -12,88 +12,104 @@ define(function() {
     }
 
     /**
-     * 蓝牙扫描
+     * 蓝牙操作
      */
-    function bleCheck() {
-        if (window.ble) {
-            window.ble.isEnabled(function() {
-                console.log("Bluetooth is enabled");
-            },function() {
-                alert("请打开蓝牙");
-            });
-        } else {
-            alert("未找到ble插件");
-        }
-    }
-    function bleOnError(errorMessage) {
-        alert("ERROR: " + errorMessage);
-    }
-    function bleStartScan(services, success) {
-        bleCheck();
-        window.ble.startScan(services, success, bleOnError);
-    }
-    function bleStopScan(success) {
-        bleCheck();
-        window.ble.stopScan(success, bleOnError);
-    }
-    function bleConnect(device_id, success) {
-        bleCheck();
-        window.ble.connect(device_id, success, bleOnError);
-        // success中返回peripheral对象，类似下列结构
-        // {
-        //     "characteristics": [{
-        //         "descriptors": [{
-        //             "uuid": "00002902-0000-1000-8000-00805f9b34fb"
-        //         }, {
-        //             "uuid": "00002901-0000-1000-8000-00805f9b34fb"
-        //         }],
-        //         "characteristic": "0000ffe1-0000-1000-8000-00805f9b34fb",
-        //         "service": "0000ffe0-0000-1000-8000-00805f9b34fb",
-        //         "properties": ["Read", "WriteWithoutResponse", "Notify"]
-        //     }],
-        //     "advertising": {},
-        //     "id": "20:C3:8F:FD:6D:76",
-        //     "services": ["0000ffe0-0000-1000-8000-00805f9b34fb"],
-        //     "rssi": -46,
-        //     "name": "LANYA"
-        // }
-    }
-    function bleDisconnect(device_id, success) {
-        bleCheck();
-        window.ble.disconnect(device_id, success, bleOnError);
-    }
-    function bleWrite(peripheral, data, success, error) {
-        bleCheck();
-        var characteristic = getCharacteristicByMode(peripheral.characteristics);
-        if (characteristic) {
-            window.ble.writeWithoutResponse(peripheral.id, characteristic.service, characteristic.characteristic, data, success, error);
-        } else {
-            alert("该蓝牙模块不是HC-08模块，无法读写");
-            error();
-        }
-    }
-    function getCharacteristicByMode(characteristics) {
-        for (var i in characteristics) {
-            //蓝牙4.0的UUID,其中0000ffe1-0000-1000-8000-00805f9b34fb是广州汇承信息科技有限公司08蓝牙模块的UUID
-            if (characteristics[i].characteristic == "0000ffe1-0000-1000-8000-00805f9b34fb") {
-                return characteristics[i];
-            } 
-        };
-        return null;
-    }
-
-    // ASCII only
-    function stringToBytes(string) {
+    function stringToBytes(string) { // ASCII only
        var array = new Uint8Array(string.length);
        for (var i = 0, l = string.length; i < l; i++) {
            array[i] = string.charCodeAt(i);
         }
         return array.buffer;
     }
-
-    // ASCII only
-    function bytesToString(buffer) {
+    function bytesToString(buffer) { // ASCII only
         return String.fromCharCode.apply(null, new Uint8Array(buffer));
+    }
+    function bleStartScan(services, success, error) {
+        if (window.ble) {
+            window.ble.isEnabled(function() {
+                window.ble.startScan(services, success, error);
+            },function() {
+                alert("请打开蓝牙");
+            });
+        } else {
+            alert("系统异常，未找到ble插件");
+        }
+    }
+    function bleStopScan(success, error) {
+        window.ble.stopScan(success, error);
+    }
+    function bleConnect(device_id, success, error) {
+        window.ble.connect(device_id, success, error);
+        // success中返回peripheral对象，类似下列结构
+        // {
+        //     "characteristics": [{
+        //         "descriptors": [{
+        //             "uuid": "2902"
+        //         }, {
+        //             "uuid": "2901"
+        //         }],
+        //         "characteristic": "ffe1",
+        //         "service": "ffe0",
+        //         "properties": ["Read", "WriteWithoutResponse", "Notify"]
+        //     }],
+        //     "advertising": {},
+        //     "id": "20:C3:8F:FD:6D:76",
+        //     "services": ["ffe0"],
+        //     "rssi": -46,
+        //     "name": "LANYA"
+        // }
+    }
+    function bleDisconnect(device_id, success, error) {
+        window.ble.disconnect(device_id, success, error);
+    }
+    function bleWrite(peripheral, data, success, error) {
+        var characteristic = getCharacteristicByHC08(peripheral.characteristics);
+        if (characteristic) {
+            window.ble.writeWithoutResponse(peripheral.id, characteristic.service, characteristic.characteristic, stringToBytes(data), success, error);
+        } else {
+            alert("该蓝牙模块不是HC-08模块，无法读写");
+            error();
+        }
+    }
+    function bleRead(peripheral, success, error) {
+        var characteristic = getCharacteristicByHC08(peripheral.characteristics);
+        if (characteristic) {
+            window.ble.read(peripheral.id, characteristic.service, characteristic.characteristic, function(buffer){
+                success(bytesToString(buffer));
+            }, error);
+        } else {
+            alert("该蓝牙模块不是HC-08模块，无法读写");
+            error();
+        }
+    }
+    function bleStartNotify(peripheral, success, error) {
+        var characteristic = getCharacteristicByHC08(peripheral.characteristics);
+        if (characteristic) {
+            window.ble.startNotification(peripheral.id, characteristic.service, characteristic.characteristic, function(buffer){
+                success(bytesToString(buffer));
+            }, error);
+        } else {
+            alert("该蓝牙模块不是HC-08模块，无法读写");
+            error();
+        }
+    }
+    function bleStopNotify(peripheral, success, error) {
+        var characteristic = getCharacteristicByHC08(peripheral.characteristics);
+        if (characteristic) {
+            window.ble.stopNotification(peripheral.id, characteristic.service, characteristic.characteristic, success, error);
+        } else {
+            alert("该蓝牙模块不是HC-08模块，无法读写");
+            error();
+        }
+    }
+    function getCharacteristicByHC08(characteristics) {
+        for (var i in characteristics) {
+            //客户提供的HC08蓝牙模块的UUID为0000ffe1-0000-1000-8000-00805f9b34fb
+            if (characteristics[i].characteristic == "ffe1") {
+                return characteristics[i];
+            }
+        };
+        return null;
     }
 
     return {
@@ -104,10 +120,10 @@ define(function() {
             connect: bleConnect,
             disconnect: bleDisconnect,
             write: bleWrite,
-            stringToBytes: stringToBytes,
-            bytesToString: bytesToString
+            read: bleRead,
+            startNotify: bleStartNotify,
+            stopNotify: bleStopNotify
         }
-        
     };
     
 });

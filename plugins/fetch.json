@@ -1,8 +1,8 @@
 {
     "cordova-plugin-ble-central": {
         "source": {
-            "type": "registry",
-            "id": "cordova-plugin-ble-central"
+            "type": "local",
+            "path": "../my_plugin/cordova-plugin-ble-central"
         },
         "is_top_level": true,
         "variables": {}
