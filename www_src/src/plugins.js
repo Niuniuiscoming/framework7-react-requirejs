@@ -14,16 +14,6 @@ define(function() {
     /**
      * 蓝牙操作
      */
-    function stringToBytes(string) { // ASCII only
-       var array = new Uint8Array(string.length);
-       for (var i = 0, l = string.length; i < l; i++) {
-           array[i] = string.charCodeAt(i);
-        }
-        return array.buffer;
-    }
-    function bytesToString(buffer) { // ASCII only
-        return String.fromCharCode.apply(null, new Uint8Array(buffer));
-    }
     function commandToBytes(command) {
         var arr = command.split(" ");
         var buffer = new ArrayBuffer(arr.length);
@@ -33,7 +23,7 @@ define(function() {
         };
         return data.buffer;
     }
-    function bytesToCommand(buffer) {
+    function bytesToArray(buffer) {
         var data = new Uint8Array(buffer);
         var hexArr = [];
         for (var i in data) {
@@ -41,7 +31,7 @@ define(function() {
             hex = "00".substr(0, 2 - hex.length) + hex; 
             hexArr.push(hex.toUpperCase());
         };
-        return hexArr.join(" ");
+        return hexArr;
     }
     function bleStartScan(services, success, error) {
         if (window.ble) {
@@ -94,7 +84,7 @@ define(function() {
         var characteristic = getCharacteristicByHC08(peripheral.characteristics);
         if (characteristic) {
             window.ble.read(peripheral.id, characteristic.service, characteristic.characteristic, function(buffer){
-                success(bytesToCommand(buffer));
+                success(bytesToArray(buffer));
             }, error);
         } else {
             alert("该蓝牙模块不是HC-08模块，无法读写");
@@ -105,7 +95,7 @@ define(function() {
         var characteristic = getCharacteristicByHC08(peripheral.characteristics);
         if (characteristic) {
             window.ble.startNotification(peripheral.id, characteristic.service, characteristic.characteristic, function(buffer){
-                success(bytesToCommand(buffer));
+                success(bytesToArray(buffer));
             }, error);
         } else {
             alert("该蓝牙模块不是HC-08模块，无法读写");

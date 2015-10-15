@@ -147,7 +147,7 @@ define(["app", "plugins", "common/pubsub"], function(app, plugins, pubsub) {
             plugins.ble.write(peripheral, data, function(){
                 // console.log('data sended:'+data);
                 that.setState({
-                    label: '等待响应1'
+                    label: '等待响应'
                 });
                 that.handleReceiveData(peripheral);
             }, function(errorMsg){
@@ -158,10 +158,22 @@ define(["app", "plugins", "common/pubsub"], function(app, plugins, pubsub) {
         handleReceiveData: function(peripheral) {
             var that = this;
             var isReceived = false;
+            var totalData = [];
+            var totalLength = 0;
             plugins.ble.startNotify(peripheral, function(data){
-                alert("接收成功:" + data);
-                that.handleDisconnect(peripheral.id);
-                isReceived = true;
+                Array.prototype.push.apply(totalData, data);
+                //按照多协文档第二位是长度位，长度为不含前面4位，所以加4
+                totalLength = 4 + parseInt(totalData[1], 16);
+                if (totalLength == totalData.length) {
+                    //测试下获取温度记录模块的信息，4~11位是模块型号名称
+                    var moduleName = "";
+                    for (var i = 4; i < 12; i++) {
+                        moduleName += String.fromCharCode(parseInt(totalData[i], 16));
+                    };
+                    alert(moduleName);
+                    that.handleDisconnect(peripheral.id);
+                    isReceived = true;
+                }
             }, function(errorMsg){
                 alert("接收失败:" + errorMsg);
                 that.handleDisconnect(peripheral.id);
