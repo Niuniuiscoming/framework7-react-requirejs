@@ -1,4 +1,3 @@
-/** @jsx React.DOM */
 define(["app", "plugins"], function(app, plugins) {
 	var PageContent = React.createClass({
 		render: function() {

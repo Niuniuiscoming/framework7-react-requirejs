@@ -12,7 +12,7 @@ Cordova插件开发测试项目
 <img src="https://raw.githubusercontent.com/cfansimon/framework7-react-requirejs/master/screenshot/Screenshot_2015-09-10-11-50-27.png" width="300px" />
 
 #####开发流程:
--提前条件：自行安装nodejs、grunt、cordova-cli、react-tools
+-提前条件：自行安装nodejs、grunt、cordova-cli、babel
 
 先安装nodejs依赖
 ```bash
@@ -20,7 +20,7 @@ $ npm install
 ```
 shell进入www_src目录，启动jsx即时编译
 ```bash
-$jsx --watch src/ build/
+$babel --watch src/ --out-dir build/
 ```
 修改代码过程中运行以下命令，会自动刷新浏览器显示结果
 ```bash

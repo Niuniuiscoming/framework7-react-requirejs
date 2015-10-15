@@ -1,4 +1,3 @@
-/** @jsx React.DOM */
 define(["app", "plugins", "common/pubsub"], function(app, plugins, pubsub) {
 
     var discoveredDevices = [];
@@ -15,7 +14,7 @@ define(["app", "plugins", "common/pubsub"], function(app, plugins, pubsub) {
                           <div className="item-content">
                             <div className="item-inner">
                               <div className="item-input">
-                                <input id="myInput" type="text" placeholder="Commond" />
+                                <input id="myInput" type="text" placeholder="Command" />
                               </div>
                             </div>
                           </div>
@@ -148,7 +147,7 @@ define(["app", "plugins", "common/pubsub"], function(app, plugins, pubsub) {
             plugins.ble.write(peripheral, data, function(){
                 // console.log('data sended:'+data);
                 that.setState({
-                    label: '等待响应'
+                    label: '等待响应1'
                 });
                 that.handleReceiveData(peripheral);
             }, function(errorMsg){

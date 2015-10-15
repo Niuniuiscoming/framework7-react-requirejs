@@ -24,6 +24,25 @@ define(function() {
     function bytesToString(buffer) { // ASCII only
         return String.fromCharCode.apply(null, new Uint8Array(buffer));
     }
+    function commandToBytes(command) {
+        var arr = command.split(" ");
+        var buffer = new ArrayBuffer(arr.length);
+        var data = new Uint8Array(buffer);
+        for (var i in arr) {
+            data[i] = parseInt(arr[i], 16);
+        };
+        return data.buffer;
+    }
+    function bytesToCommand(buffer) {
+        var data = new Uint8Array(buffer);
+        var hexArr = [];
+        for (var i in data) {
+            var hex = data[i].toString(16);
+            hex = "00".substr(0, 2 - hex.length) + hex; 
+            hexArr.push(hex.toUpperCase());
+        };
+        return hexArr.join(" ");
+    }
     function bleStartScan(services, success, error) {
         if (window.ble) {
             window.ble.isEnabled(function() {
@@ -65,7 +84,7 @@ define(function() {
     function bleWrite(peripheral, data, success, error) {
         var characteristic = getCharacteristicByHC08(peripheral.characteristics);
         if (characteristic) {
-            window.ble.writeWithoutResponse(peripheral.id, characteristic.service, characteristic.characteristic, stringToBytes(data), success, error);
+            window.ble.writeWithoutResponse(peripheral.id, characteristic.service, characteristic.characteristic, commandToBytes(data), success, error);
         } else {
             alert("该蓝牙模块不是HC-08模块，无法读写");
             error();
@@ -75,7 +94,7 @@ define(function() {
         var characteristic = getCharacteristicByHC08(peripheral.characteristics);
         if (characteristic) {
             window.ble.read(peripheral.id, characteristic.service, characteristic.characteristic, function(buffer){
-                success(bytesToString(buffer));
+                success(bytesToCommand(buffer));
             }, error);
         } else {
             alert("该蓝牙模块不是HC-08模块，无法读写");
@@ -86,7 +105,7 @@ define(function() {
         var characteristic = getCharacteristicByHC08(peripheral.characteristics);
         if (characteristic) {
             window.ble.startNotification(peripheral.id, characteristic.service, characteristic.characteristic, function(buffer){
-                success(bytesToString(buffer));
+                success(bytesToCommand(buffer));
             }, error);
         } else {
             alert("该蓝牙模块不是HC-08模块，无法读写");
