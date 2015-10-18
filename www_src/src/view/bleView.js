@@ -1,4 +1,4 @@
-define(["app", "plugins", "common/pubsub", "common/dx-sdk"], function(app, plugins, pubsub, dxsdk) {
+define(["app", "common/pubsub", "common/dx-sdk"], function(app, pubsub, dxsdk) {
 
     var discoveredDevices = [];
 
@@ -8,8 +8,6 @@ define(["app", "plugins", "common/pubsub", "common/dx-sdk"], function(app, plugi
                 <div className="page-content">
                     <ScanBtn/>
                     <DeviceList/>
-                    <div ref="resultDiv">
-                    </div>
                 </div>
             );
         },
@@ -82,7 +80,7 @@ define(["app", "plugins", "common/pubsub", "common/dx-sdk"], function(app, plugi
                               <div className="item-inner">
                                 <div className="item-title">{item.name}({item.id})</div>
                                 <div className="item-after">
-                                    <UploadBtn seq={i}/>
+                                    <UploadBtn index={i}/>
                                 </div>
                               </div>
                             </li>
@@ -94,52 +92,11 @@ define(["app", "plugins", "common/pubsub", "common/dx-sdk"], function(app, plugi
         },
     });
     
-    var connectedBtnIndex = null;
     var UploadBtn = React.createClass({
-        getInitialState: function() {
-            return {
-                label: '点击连接',
-                connected: false,
-                deviceId: null
-            };
-        },
-        handleClick: function(i) {
-            var that = this;
-            if (!that.state.connected) { //未连接状态
-                that.setState({
-                    label: '正在连接'
-                });
-                dxsdk.sys.connect(discoveredDevices[i].id, function(peripheral){
-                    connectedBtnIndex = i; //标记当前按钮已连接
-                    that.setState({
-                        label: '断开连接',
-                        connected: true,
-                        deviceId: discoveredDevices[i].id
-                    });
-                    dxsdk.api.status(peripheral, function(data){
-                        alert(JSON.stringify(data));
-                    });
-                }, function(errorMsg){
-                    alert('连接失败：' + errorMsg);
-                    that.setState({
-                        label: '点击连接'
-                    });
-                });
-            } else {
-                that.setState({
-                    label: '正在断开'
-                });
-                dxsdk.sys.disconnect(that.state.deviceId, function(){
-                    that.setState({
-                        label: '点击连接'
-                    });
-                });
-            }
-            
-        },
         render: function() {
+            var path = app.path('bleDetail', {deviceId: discoveredDevices[this.props.index].id});
             return (
-                <a href="#" className="button color-blue" onClick={this.handleClick.bind(this, this.props.seq)}>{this.state.label}</a>
+                <a className="button color-blue" href={path}>连接设备</a>
             );
         },
     });
