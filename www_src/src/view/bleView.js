@@ -1,4 +1,4 @@
-define(["app", "plugins", "common/pubsub"], function(app, plugins, pubsub) {
+define(["app", "plugins", "common/pubsub", "common/dx-sdk"], function(app, plugins, pubsub, dxsdk) {
 
     var discoveredDevices = [];
 
@@ -8,19 +8,6 @@ define(["app", "plugins", "common/pubsub"], function(app, plugins, pubsub) {
                 <div className="page-content">
                     <ScanBtn/>
                     <DeviceList/>
-                    <div className="list-block">
-                      <ul>
-                        <li>
-                          <div className="item-content">
-                            <div className="item-inner">
-                              <div className="item-input">
-                                <input id="myInput" type="text" placeholder="Command" />
-                              </div>
-                            </div>
-                          </div>
-                        </li>
-                      </ul>
-                    </div>
                     <div ref="resultDiv">
                     </div>
                 </div>
@@ -45,7 +32,7 @@ define(["app", "plugins", "common/pubsub"], function(app, plugins, pubsub) {
         handleScan: function() {
             var that = this;
             if (that.state.isScan) { //扫描中
-                plugins.ble.stopScan(function() {
+                dxsdk.sys.stopScan(function() {
                     that.setState({
                         scanLabel: "开始扫描",
                         isScan: false
@@ -61,7 +48,7 @@ define(["app", "plugins", "common/pubsub"], function(app, plugins, pubsub) {
                 discoveredDevices = [];
                 pubsub.publish('scan', discoveredDevices);
 
-                plugins.ble.startScan([], function(device) {
+                dxsdk.sys.startScan([], function(device) {
                     //发现一个设备则回调一次
                     discoveredDevices.push(device);
                     pubsub.publish('scan', discoveredDevices);
@@ -106,88 +93,53 @@ define(["app", "plugins", "common/pubsub"], function(app, plugins, pubsub) {
             );
         },
     });
-
+    
+    var connectedBtnIndex = null;
     var UploadBtn = React.createClass({
         getInitialState: function() {
             return {
-                label: '上传数据'
+                label: '点击连接',
+                connected: false,
+                deviceId: null
             };
         },
-        handleConnect: function(i) {
+        handleClick: function(i) {
             var that = this;
-            that.setState({
-                label: '正在连接'
-            });
-            plugins.ble.connect(discoveredDevices[i].id, function(peripheral){
+            if (!that.state.connected) { //未连接状态
                 that.setState({
-                    label: '连接成功'
+                    label: '正在连接'
                 });
-                // console.log(JSON.stringify(peripheral));
-                //禁用所有上传按钮
-                $$(".button").addClass('disabled');
-                that.handleSendData(peripheral);
-            }, function(errorMsg){
-                alert('连接失败：' + errorMsg + '，请重试');
+                dxsdk.sys.connect(discoveredDevices[i].id, function(peripheral){
+                    connectedBtnIndex = i; //标记当前按钮已连接
+                    that.setState({
+                        label: '断开连接',
+                        connected: true,
+                        deviceId: discoveredDevices[i].id
+                    });
+                    dxsdk.api.status(peripheral, function(data){
+                        alert(JSON.stringify(data));
+                    });
+                }, function(errorMsg){
+                    alert('连接失败：' + errorMsg);
+                    that.setState({
+                        label: '点击连接'
+                    });
+                });
+            } else {
                 that.setState({
-                    label: '上传数据'
+                    label: '正在断开'
                 });
-            });
-        },
-        handleDisconnect: function(deviceId) {
-            var that = this;
-            plugins.ble.disconnect(deviceId);
-            that.setState({
-                label: '上传数据'
-            });
-            $$(".button").removeClass('disabled');
-        },
-        handleSendData: function(peripheral) {
-            var that = this;
-            var data = $$('#myInput').val();
-            plugins.ble.write(peripheral, data, function(){
-                // console.log('data sended:'+data);
-                that.setState({
-                    label: '等待响应'
+                dxsdk.sys.disconnect(that.state.deviceId, function(){
+                    that.setState({
+                        label: '点击连接'
+                    });
                 });
-                that.handleReceiveData(peripheral);
-            }, function(errorMsg){
-                alert("指令\"" + data + "\"发送失败:" + errorMsg);
-                that.handleDisconnect(peripheral.id);
-            });
-        },
-        handleReceiveData: function(peripheral) {
-            var that = this;
-            var isReceived = false;
-            var totalData = [];
-            var totalLength = 0;
-            plugins.ble.startNotify(peripheral, function(data){
-                Array.prototype.push.apply(totalData, data);
-                //按照多协文档第二位是长度位，长度为不含前面4位，所以加4
-                totalLength = 4 + parseInt(totalData[1], 16);
-                if (totalLength == totalData.length) {
-                    //测试下获取温度记录模块的信息，4~11位是模块型号名称
-                    var moduleName = "";
-                    for (var i = 4; i < 12; i++) {
-                        moduleName += String.fromCharCode(parseInt(totalData[i], 16));
-                    };
-                    alert(moduleName);
-                    that.handleDisconnect(peripheral.id);
-                    isReceived = true;
-                }
-            }, function(errorMsg){
-                alert("接收失败:" + errorMsg);
-                that.handleDisconnect(peripheral.id);
-            });
-            setTimeout(function(){
-                if (!isReceived) {
-                    alert("等待超时，15秒内设备未响应");
-                    that.handleDisconnect(peripheral.id);
-                }
-            },15000);
+            }
+            
         },
         render: function() {
             return (
-                <a href="#" className="button color-blue" onClick={this.handleConnect.bind(this, this.props.seq)}>{this.state.label}</a>
+                <a href="#" className="button color-blue" onClick={this.handleClick.bind(this, this.props.seq)}>{this.state.label}</a>
             );
         },
     });
