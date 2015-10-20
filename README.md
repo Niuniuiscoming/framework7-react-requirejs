@@ -8,8 +8,10 @@ Cordova插件开发测试项目
 - [cordova-plugin-ble-central](https://github.com/don/cordova-plugin-ble-central)
 
 #####部分截图
-<img src="https://raw.githubusercontent.com/cfansimon/framework7-react-requirejs/master/screenshot/Screenshot_2015-09-10-11-49-50.png" width="300px" />
-<img src="https://raw.githubusercontent.com/cfansimon/framework7-react-requirejs/master/screenshot/Screenshot_2015-09-10-11-50-27.png" width="300px" />
+<img src="https://raw.githubusercontent.com/cfansimon/framework7-react-requirejs/master/screenshot/Screenshot_2015-09-10-11-49-50.png" width="200px" />
+<img src="https://raw.githubusercontent.com/cfansimon/framework7-react-requirejs/master/screenshot/Screenshot_2015-10-20-23-43-14.png" width="200px" />
+<img src="https://raw.githubusercontent.com/cfansimon/framework7-react-requirejs/master/screenshot/Screenshot_2015-10-20-23-43-18.png" width="200px" />
+<img src="https://raw.githubusercontent.com/cfansimon/framework7-react-requirejs/master/screenshot/Screenshot_2015-10-20-23-43-41.png" width="200px" />
 
 #####开发流程:
 -提前条件：自行安装nodejs、grunt、cordova-cli、babel
