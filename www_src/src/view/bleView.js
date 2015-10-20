@@ -80,7 +80,7 @@ define(["app", "common/pubsub", "common/dx-sdk"], function(app, pubsub, dxsdk) {
                               <div className="item-inner">
                                 <div className="item-title">{item.name}({item.id})</div>
                                 <div className="item-after">
-                                    <UploadBtn index={i}/>
+                                    <UploadBtn deviceId={item.id}/>
                                 </div>
                               </div>
                             </li>
@@ -94,7 +94,7 @@ define(["app", "common/pubsub", "common/dx-sdk"], function(app, pubsub, dxsdk) {
     
     var UploadBtn = React.createClass({
         render: function() {
-            var path = app.path('bleDetail', {deviceId: discoveredDevices[this.props.index].id});
+            var path = app.path('bleDetail', {deviceId: this.props.deviceId});
             return (
                 <a className="button color-blue" href={path}>连接设备</a>
             );

@@ -18,9 +18,9 @@ Cordova插件开发测试项目
 ```bash
 $ npm install
 ```
-shell进入www_src目录，启动jsx即时编译
+shell进入www_src目录，启动jsx即时编译，--compact 压缩(变量名不压缩) --no-comments 删除注释
 ```bash
-$babel --watch src/ --out-dir build/
+babel --watch src/ --out-dir build/ --compact --no-comments
 ```
 修改代码过程中运行以下命令，会自动刷新浏览器显示结果
 ```bash
