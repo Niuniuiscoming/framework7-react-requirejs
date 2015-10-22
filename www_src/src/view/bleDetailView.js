@@ -16,12 +16,16 @@ define(["app", "common/pubsub", "common/dx-sdk"], function(app, pubsub, dxsdk) {
         componentWillMount: function() {
             var that = this;
             var deviceId = this.props.deviceId;
-            this.getBleStatus(deviceId, function() {
-                that.getBleTempData(deviceId);
+            this.getBleStatus(deviceId, afterGetBleStatus);
+            function afterGetBleStatus() {
+                that.getBleTempData(deviceId, afterGetBleTempData);
                 timer = setInterval(function() {
-                    that.getBleTempData(deviceId);
+                    that.getBleTempData(deviceId, afterGetBleTempData);
                 }, 1000*interval);
-            });
+            }
+            function afterGetBleTempData() {
+
+            }
         },
         getBleStatus: function(deviceId, afterSuccess) {
             var that = this;
@@ -45,6 +49,7 @@ define(["app", "common/pubsub", "common/dx-sdk"], function(app, pubsub, dxsdk) {
                     that.setState({tempData: data});
                     afterSuccess && afterSuccess();
                 }, function(errorMsg) {
+                    clearInterval(timer);
                     app.alert("温度数据获取失败，" + errorMsg);
                 }, function(progress) {
                     that.setState({tempProgress: progress});
@@ -181,6 +186,7 @@ define(["app", "common/pubsub", "common/dx-sdk"], function(app, pubsub, dxsdk) {
 
             // 回退前先断开连接
             $$("#ble-detail-back").click(function(){
+                clearInterval(timer);
                 dxsdk.sys.disconnect(deviceId, function() {
                     app.mainView.router.back();
                 });
