@@ -51,6 +51,16 @@ define(["common/dx-sdk"], function(dxsdk) {
         f7.alert(msg, "提示");
     }
 
+    var notify = function(title, message) {
+    	var instance = f7.addNotification({
+            title: title,
+            message: message
+        });
+        setTimeout(function() {
+        	f7.closeNotification(instance);
+        }, 1000*5);
+    }
+
     //HTML绑定对应的react view模块
     function load(moduleName, query) {
         require(['view/' + moduleName + 'View'], function(module) {
@@ -85,6 +95,7 @@ define(["common/dx-sdk"], function(dxsdk) {
         indicator: indicator,
         preloader: preloader,
         alert: alert,
+        notify: notify,
         load: load,
         sendMessage: sendMessage,
         path: path

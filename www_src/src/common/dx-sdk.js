@@ -12,9 +12,9 @@ define(function() {
             hide: null
         },
         timeout: {
-            connect: 15,
-            startRead: 30,
-            finishRead: 60*1.5
+            connect: 30,
+            startRead: 60,
+            finishRead: 60*2
         },
         alert: function(msg) {
             alert(msg);
@@ -194,8 +194,8 @@ define(function() {
     //api底层方法，传入多协文档的16进制指令，输出记录仪返回的16进制数据，未做数据解析
     api.execute = function(peripheral, command, isNeedResponse, onSuccess, onError, onProgress) {
         // preloader.show("准备读取数据");
-        onProgress && onProgress([1, 100]); //模拟一点进展
-        sys.write(peripheral, command, function(){
+        onProgress && onProgress([1, 100]); //模拟一点进度
+        sys.write(peripheral, command, function() {
 
             if (isNeedResponse) {
                 var isReceiving = false;
@@ -203,7 +203,7 @@ define(function() {
                 var totalData = [];
                 var totalLength = 0;
 
-                var t1 = setTimeout(function(){
+                var t1 = setTimeout(function() {
                     if (!isReceiving) {
                         clearTimeout(t2);
                         // preloader.hide();
@@ -212,7 +212,7 @@ define(function() {
                     }
                 },1000*config.timeout.startRead);
 
-                var t2 = setTimeout(function(){
+                var t2 = setTimeout(function() {
                     if (!isReceived) {
                         // preloader.hide();
                         onError && onError("数据接收超时，" + config.timeout.finishRead + "秒内未收到完整数据");
@@ -220,7 +220,7 @@ define(function() {
                     }
                 },1000*config.timeout.finishRead);
 
-                sys.startNotify(peripheral, function(data){
+                sys.startNotify(peripheral, function(data) {
                     //关闭loading提示，可以在onProgress里启用进度条提示
                     // preloader.hide();
                     // 蓝牙数据传输每组20条记录，多余20条会自动拆分成多个Notify发送
@@ -249,7 +249,7 @@ define(function() {
                 onSuccess && onSuccess();
             }
 
-        }, function(errorMsg){
+        }, function(errorMsg) {
 
             // preloader.hide();
             onError && onError("指令\"" + command + "\"发送失败:" + errorMsg);
@@ -260,7 +260,7 @@ define(function() {
     api.translator = {
         ascii: function(data) {
             var str = "";
-            data.map(function(item){
+            data.map(function(item) {
                 var code = parseInt(item, 16);
                 if (code != 0) {
                     str += String.fromCharCode(code);
@@ -270,41 +270,39 @@ define(function() {
         },
         binary: function(data) {
             var str = "";
-            data.map(function(item){
+            data.reverse().map(function(item) {
                 str += parseInt(item, 16).toString(2);
             });
             return str;
         },
         float: function(data) {
             var str = "";
-            data.map(function(item){
+            data.reverse().map(function(item) {
                 str += parseInt(item, 16) + ".";
             });
             return str.substr(0, str.length-1);
         },
         int: function(data) {
             var str = "";
-            data.map(function(item){
+            data.reverse().map(function(item) {
                 str += parseInt(item, 16);
             });
             return str;
         },
-        time: function(data) {
-            function fixZero(num) {
-                return num < 10 ? "0" + num : num;
-            }
-            var str = "";
-            var time = data.join("");
-            var date = new Date(parseInt(time, 16) * 1000);
-            var y = date.getFullYear();
-            var m = fixZero(date.getMonth() + 1);
-            var d = fixZero(date.getDate());
-            var hh = fixZero(date.getHours());
-            var mm = fixZero(date.getMinutes());
-            var ss = fixZero(date.getSeconds());
-            return y + "-" + m + "-" + d + " " + hh + ":" + mm + ":" + ss;
+        timestamp: function(data) {
+            // 时间需要取反，8F F2 22 56 变成为 0x5622f28f
+            return parseInt(data.reverse().join(""), 16);
+        },
+        timestamp2Hex: function(timestamp) {
+            var str = parseInt(timestamp).toString(16);
+            var arr = [];
+            for (var i = 0; i < str.length; i+=2) {
+                arr.push(str.substr(i, 2));
+            };
+            return arr.reverse().join(" ").toUpperCase();
         },
         temp: function(data) {
+            // 温度也需要取反
             return (parseInt(data.reverse().join(""), 16)/16).toFixed(2);
         },
         literal: function(data, separator) {
@@ -320,18 +318,29 @@ define(function() {
         api.execute(peripheral, "7F 00 10 ED", false);
     };
 
+    //把手机时间同步到记录仪中，04 更新记录仪中时间
+    api.syncTime = function(peripheral, onSuccess, onError, onProgress) {
+        api.execute(peripheral, "7F 00 10 ED " + api.translator.timestamp2Hex(Math.floor(new Date().getTime() / 1000)), true, function(data) {
+            // [0x7F][LEN][0x04][SUM][4_TIME]
+            var json = {
+                time: api.translator.timestamp(data.slice(4,8))
+            }
+            onSuccess && onSuccess(json);
+        }, onError, onProgress);
+    };
+
     //05获取记录仪状态
     api.status = function(peripheral, onSuccess, onError, onProgress) {
 
-        api.execute(peripheral, "7F 00 05 F8", true, function(data){
+        api.execute(peripheral, "7F 00 05 F8", true, function(data) {
             // [0x7F][1_LEN][0x05][SUM][8_MODULE][8_ID][8_KEY][4_TIME][2_VER] [2_VOLTAGE][16_NAME][8_0x00]
             var json = {
                 module: api.translator.ascii(data.slice(4,12)),
                 id: api.translator.ascii(data.slice(12,20)),
                 key: api.translator.ascii(data.slice(20,28)),
-                time: api.translator.time(data.slice(28,32)),
+                time: api.translator.timestamp(data.slice(28,32)),
                 ver: "v" + api.translator.float(data.slice(32,34)),
-                voltage: api.translator.float(data.slice(34,36)) + "mV",
+                voltage: api.translator.int(data.slice(34,36)) + "mV",
                 name: api.translator.ascii(data.slice(36,44))
             };
             onSuccess && onSuccess(json);
@@ -342,7 +351,7 @@ define(function() {
     //08 读取当前变化量
     api.currentData = function(peripheral, onSuccess, onError, onProgress) {
 
-        api.execute(peripheral, "7F 00 08 F5", true, function(data){
+        api.execute(peripheral, "7F 00 08 F5", true, function(data) {
             // [0x7F][LEN][0x08][SUM][1_STATUS][1_RESERVE][2_TEMP][4_BASE][4_NUM]
             var json = {
                 status: api.translator.binary(data.slice(4,5)),

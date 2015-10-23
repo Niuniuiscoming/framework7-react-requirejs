@@ -1,8 +1,11 @@
-define(["app", "common/pubsub", "common/dx-sdk"], function(app, pubsub, dxsdk) {
+define(function(require, exports, module) {
+
+    var app = require("app");
+    var pubsub = require("common/pubsub");
+    var dxsdk = require("common/dx-sdk");
+    var toolkit = require("common/toolkit");
 
     var currentPeripheral = null;
-    var timer = null; //定时刷新温度
-    var interval = 5; //刷新间隔，单位秒
 
     var PageContent = React.createClass({
         getInitialState: function() {
@@ -16,15 +19,13 @@ define(["app", "common/pubsub", "common/dx-sdk"], function(app, pubsub, dxsdk) {
         componentWillMount: function() {
             var that = this;
             var deviceId = this.props.deviceId;
+
             this.getBleStatus(deviceId, afterGetBleStatus);
             function afterGetBleStatus() {
                 that.getBleTempData(deviceId, afterGetBleTempData);
-                timer = setInterval(function() {
-                    that.getBleTempData(deviceId, afterGetBleTempData);
-                }, 1000*interval);
             }
             function afterGetBleTempData() {
-
+                that.getBleStatus(deviceId, afterGetBleStatus);
             }
         },
         getBleStatus: function(deviceId, afterSuccess) {
@@ -32,6 +33,9 @@ define(["app", "common/pubsub", "common/dx-sdk"], function(app, pubsub, dxsdk) {
             this.getConnection(deviceId, function(peripheral) {
                 //获取设备基本信息
                 dxsdk.api.status(peripheral, function(data) {
+                    if (data.time) { //格式化时间戳
+                        data.time = toolkit.date('Y-m-d H:m:s', data.time);
+                    }
                     that.setState({infoData: data});
                     afterSuccess && afterSuccess();
                 }, function(errorMsg) {
@@ -49,10 +53,24 @@ define(["app", "common/pubsub", "common/dx-sdk"], function(app, pubsub, dxsdk) {
                     that.setState({tempData: data});
                     afterSuccess && afterSuccess();
                 }, function(errorMsg) {
-                    clearInterval(timer);
                     app.alert("温度数据获取失败，" + errorMsg);
                 }, function(progress) {
                     that.setState({tempProgress: progress});
+                });
+            });
+        },
+        syncTime: function(deviceId, onComplete) {
+            this.getConnection(deviceId, function(peripheral) {
+                // 每次连接后把本地时间同步到记录仪
+                dxsdk.api.syncTime(peripheral, function(data) {
+                    if (data.time) { //格式化时间戳
+                        data.time = toolkit.date('Y-m-d H:m:s', data.time);
+                    }
+                    app.notify('提示', '时间同步成功 ' + data.time);
+                    onComplete && onComplete();
+                }, function() {
+                    app.notify('警告', '时间同步失败');
+                    onComplete && onComplete();
                 });
             });
         },
@@ -78,8 +96,6 @@ define(["app", "common/pubsub", "common/dx-sdk"], function(app, pubsub, dxsdk) {
                 onSuccess && onSuccess(peripheral);
             }, function(errorMsg) {
                 app.alert('连接失败：' + errorMsg);
-                //退回列表页面
-                app.mainView.router.back();
             }, function() {
                 app.alert('连接中断，请返回后重新连接');
             });
@@ -124,7 +140,7 @@ define(["app", "common/pubsub", "common/dx-sdk"], function(app, pubsub, dxsdk) {
                 <div className="list-block">
                     <ul>
                         {this.props.fields.map(function(item, i) {
-                            var itemValue = this.state.data[item.key] || parseInt(this.state.progress[0]*100/this.state.progress[1]) + "% loading";
+                            var itemValue = this.state.data[item.key] || parseInt(this.state.progress[0]*100/this.state.progress[1]) + '% loading';
                             return (
                                 <li key={i}>
                                     <div className="item-content">
@@ -160,7 +176,7 @@ define(["app", "common/pubsub", "common/dx-sdk"], function(app, pubsub, dxsdk) {
             }
         },
         render: function() {
-            var temp = this.state.data['temp'] || parseInt(this.state.progress[0]*100/this.state.progress[1]) + "% loading";
+            var temp = this.state.data['temp'] || parseInt(this.state.progress[0]*100/this.state.progress[1]) + '% loading';
             var tempStyle = {
                 textAlign: 'center',
                 padding: '10px',
@@ -186,7 +202,6 @@ define(["app", "common/pubsub", "common/dx-sdk"], function(app, pubsub, dxsdk) {
 
             // 回退前先断开连接
             $$("#ble-detail-back").click(function(){
-                clearInterval(timer);
                 dxsdk.sys.disconnect(deviceId, function() {
                     app.mainView.router.back();
                 });
