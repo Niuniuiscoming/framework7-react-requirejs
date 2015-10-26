@@ -85,7 +85,6 @@ define(["common/dx-sdk"], function(dxsdk) {
 
     //配置dxsdk
     dxsdk.setConfig({
-        preloader: preloader,
         alert: alert
     });
 

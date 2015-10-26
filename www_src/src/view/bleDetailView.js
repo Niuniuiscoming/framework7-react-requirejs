@@ -17,27 +17,23 @@ define(function(require, exports, module) {
                 tempProgress: [0, 100]
             };
         },
-        componentWillMount: function() {
+        componentDidMount: function() {
             var that = this;
             var deviceId = this.props.deviceId;
-            
-            // 同步手机时间到模块
-            this.syncTime(deviceId, afterSyncTime);
+            loop = true;
 
-            function afterSyncTime() {
-                loop = true;
+            // 同步手机时间到模块
+            this.syncTime(deviceId, function() {
                 that.getBleStatus(deviceId, afterGetBleStatus);
-                // setTimeout(function() {
-                //     dxsdk.sys.disconnect(deviceId, function() {
-                //         that.getBleStatus(deviceId, afterGetBleStatus);
-                //     });
-                // }, 2000);
-            }
+            });
+
             function afterGetBleStatus() {
                 loop && that.getBleTempData(deviceId, afterGetBleTempData);
             }
             function afterGetBleTempData() {
-                loop && that.getBleStatus(deviceId, afterGetBleStatus);
+                setTimeout(function() {
+                    loop && that.getBleStatus(deviceId, afterGetBleStatus);
+                },1000*10);
             }
         },
         getBleStatus: function(deviceId, afterSuccess) {
@@ -46,7 +42,7 @@ define(function(require, exports, module) {
                 //获取设备基本信息
                 dxsdk.api.status(peripheral, function(data) {
                     if (data.time) { //格式化时间戳
-                        data.time = toolkit.date('Y-m-d H:m:s', data.time);
+                        data.time = toolkit.date('Y-m-d H:i:s', data.time);
                     }
                     that.setState({infoData: data});
                     afterSuccess && afterSuccess();
@@ -73,16 +69,18 @@ define(function(require, exports, module) {
             });
         },
         syncTime: function(deviceId, onComplete) {
+            app.preloader.show("同步时间...");
             this.getConnection(deviceId, function(peripheral) {
                 // 每次连接后把本地时间同步到记录仪
                 dxsdk.api.syncTime(peripheral, function(data) {
                     if (data.time) { //格式化时间戳
-                        data.time = toolkit.date('Y-m-d H:m:s', data.time);
+                        data.time = toolkit.date('Y-m-d H:i:s', data.time);
                     }
-                    app.notify('提示', '时间同步成功 ' + data.time);
+                    app.preloader.hide();
                     onComplete && onComplete();
                 }, function() {
-                    app.notify('警告', '时间同步失败');
+                    app.preloader.hide();
+                    app.alert('时间同步失败，请返回重试');
                     onComplete && onComplete();
                 });
             });
@@ -104,10 +102,13 @@ define(function(require, exports, module) {
             });
         },
         setConnection: function(deviceId, onSuccess) {
+            app.preloader.show("连接设备...");
             dxsdk.sys.connect(deviceId, function(peripheral){
                 currentPeripheral = peripheral;
+                app.preloader.hide();
                 onSuccess && onSuccess(peripheral);
             }, function(errorMsg) {
+                app.preloader.hide();
                 app.alert('连接失败：' + errorMsg);
             }, function() {
                 app.alert('连接中断，请返回后重新连接');

@@ -7,14 +7,8 @@
 define(function() {
 
     var config = {
-        preloader: {
-            show: null,
-            hide: null
-        },
         timeout: {
-            connect: 30,
-            startRead: 60,
-            finishRead: 60*2
+            connect: 30
         },
         alert: function(msg) {
             alert(msg);
@@ -25,22 +19,6 @@ define(function() {
         for (var i in config) {
             if (cfg[i]) {
                 config[i] = cfg[i];
-            }
-        }
-    }
-
-    var isPreloaderShowed = false;
-    var preloader = {
-        show: function(msg) {
-            if (!isPreloaderShowed && config.preloader.show) {
-                config.preloader.show(msg);
-                isPreloaderShowed = true;
-            }
-        },
-        hide: function() {
-            if (isPreloaderShowed && config.preloader.hide) {
-                config.preloader.hide();
-                isPreloaderShowed = false;
             }
         }
     }
@@ -95,16 +73,10 @@ define(function() {
     }
 
     sys.connect = function(deviceId, onSuccess, onError, onDisconnected) {
-        preloader.show("正在连接");
-
         var isConnected = false;
         var t = setTimeout(function(){
             if (isConnected) {
-                try {
-                    sys.disconnect(deviceId); //确保断开
-                } catch (e) {
-
-                }
+                sys.disconnect(deviceId); //确保断开
             }
             onError && onError("连接超时，" + config.timeout.connect + "秒内未连接成功");
         },1000*config.timeout.connect);
@@ -112,7 +84,6 @@ define(function() {
         window.ble.connect(deviceId, function(peripheral) {
             isConnected = true;
             clearTimeout(t);
-            preloader.hide();
             onSuccess && onSuccess(peripheral);
         }, function(errorMsg) {
             isConnected = false;
@@ -121,7 +92,6 @@ define(function() {
             if (errorMsg == 'Disconnected') {
                 onDisconnected && onDisconnected();
             } else {
-                preloader.hide();
                 onError && onError(errorMsg);
             }
         });
@@ -146,14 +116,7 @@ define(function() {
     }
 
     sys.disconnect = function(deviceId, onSuccess, onError) {
-        preloader.show("正在断开连接");
-        window.ble.disconnect(deviceId, function() {
-            preloader.hide();
-            onSuccess && onSuccess();
-        }, function() {
-            preloader.hide();
-            onError && onError(errorMsg);
-        });
+        window.ble.disconnect(deviceId, onSuccess, onError);
     }
 
     sys.isConnected = function(deviceId, onSuccess, onFail) {
@@ -193,36 +156,16 @@ define(function() {
 
     //api底层方法，传入多协文档的16进制指令，输出记录仪返回的16进制数据，未做数据解析
     api.execute = function(peripheral, command, isNeedResponse, onSuccess, onError, onProgress) {
-        // preloader.show("准备读取数据");
         onProgress && onProgress([1, 100]); //模拟一点进度
         sys.write(peripheral, command, function() {
 
             if (isNeedResponse) {
-                var isReceiving = false;
-                var isReceived = false;
+
                 var totalData = [];
                 var totalLength = 0;
 
-                var t1 = setTimeout(function() {
-                    if (!isReceiving) {
-                        clearTimeout(t2);
-                        // preloader.hide();
-                        onError && onError("响应超时，" + config.timeout.startRead + "秒内未收到任何数据");
-                        sys.stopNotify(peripheral);
-                    }
-                },1000*config.timeout.startRead);
-
-                var t2 = setTimeout(function() {
-                    if (!isReceived) {
-                        // preloader.hide();
-                        onError && onError("数据接收超时，" + config.timeout.finishRead + "秒内未收到完整数据");
-                        sys.stopNotify(peripheral);
-                    }
-                },1000*config.timeout.finishRead);
-
                 sys.startNotify(peripheral, function(data) {
                     //关闭loading提示，可以在onProgress里启用进度条提示
-                    // preloader.hide();
                     // 蓝牙数据传输每组20条记录，多余20条会自动拆分成多个Notify发送
                     // 累加每次Notify发送过来的数据
                     // Array.prototype.push.apply(totalData, data);
@@ -235,18 +178,11 @@ define(function() {
                         totalLength = 4 + parseInt(totalData[1], 16);
                         onProgress && onProgress([totalData.length, totalLength]);
                         if (totalLength == totalData.length) {
-                            isReceived = true;
-                            clearTimeout(t2);
                             onSuccess && onSuccess(totalData); //当前方案是数据全部读完再回调
                             sys.stopNotify(peripheral);
                         }
-                        if (!isReceiving) {
-                            isReceiving = true;
-                            clearTimeout(t1);
-                        }
                     }
                 }, function(errorMsg){
-                    // preloader.hide();
                     onError && onError("数据接收失败:" + errorMsg);
                 });
             } else { //不需要接收数据返回
@@ -254,10 +190,7 @@ define(function() {
             }
 
         }, function(errorMsg) {
-
-            // preloader.hide();
             onError && onError("指令\"" + command + "\"发送失败:" + errorMsg);
-
         });
     }
 
