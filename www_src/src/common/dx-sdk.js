@@ -226,20 +226,24 @@ define(function() {
                     // 蓝牙数据传输每组20条记录，多余20条会自动拆分成多个Notify发送
                     // 累加每次Notify发送过来的数据
                     // Array.prototype.push.apply(totalData, data);
-                    // console.log(data);
                     totalData = totalData.concat(data);
-                    // 计算本次报文总长度，按照多协文档第2位是长度位，长度为不含前面4位，所以加4
-                    totalLength = 4 + parseInt(totalData[1], 16);
-                    onProgress && onProgress([totalData.length, totalLength]);
-                    if (totalLength == totalData.length) {
-                        isReceived = true;
-                        clearTimeout(t2);
-                        onSuccess && onSuccess(totalData); //当前方案是数据全部读完再回调
-                        sys.stopNotify(peripheral);
-                    }
-                    if (!isReceiving) {
-                        isReceiving = true;
-                        clearTimeout(t1);
+                    console.log(data.join(" "));
+                    if (totalData.length < 4) { //返回数据至少有4位
+                        onError && onError("模块返回的数据长度有误，当前返回值为" + totalData.join(" "));
+                    } else {
+                        // 计算本次报文总长度，按照多协文档第2位是长度位，长度为不含前面4位，所以加4
+                        totalLength = 4 + parseInt(totalData[1], 16);
+                        onProgress && onProgress([totalData.length, totalLength]);
+                        if (totalLength == totalData.length) {
+                            isReceived = true;
+                            clearTimeout(t2);
+                            onSuccess && onSuccess(totalData); //当前方案是数据全部读完再回调
+                            sys.stopNotify(peripheral);
+                        }
+                        if (!isReceiving) {
+                            isReceiving = true;
+                            clearTimeout(t1);
+                        }
                     }
                 }, function(errorMsg){
                     // preloader.hide();
@@ -255,6 +259,18 @@ define(function() {
             onError && onError("指令\"" + command + "\"发送失败:" + errorMsg);
 
         });
+    }
+
+    //计算指令的第4位
+    api.insertCommandSum = function(command) {
+        var sum = 0;
+        var arr = command.split(" ");
+        arr.slice(1).reverse().map(function(item) {
+            sum = (0xff)&( sum + ~parseInt(item, 16));
+        });
+        sum = sum.toString(16);
+        arr[3] = sum;
+        return arr.join(" ").toUpperCase();
     }
 
     api.translator = {
@@ -283,14 +299,7 @@ define(function() {
             return str.substr(0, str.length-1);
         },
         int: function(data) {
-            var str = "";
-            data.reverse().map(function(item) {
-                str += parseInt(item, 16);
-            });
-            return str;
-        },
-        timestamp: function(data) {
-            // 时间需要取反，8F F2 22 56 变成为 0x5622f28f
+            // 整数需要变反，8F F2 22 56 变成为 0x5622f28f
             return parseInt(data.reverse().join(""), 16);
         },
         timestamp2Hex: function(timestamp) {
@@ -302,7 +311,7 @@ define(function() {
             return arr.reverse().join(" ").toUpperCase();
         },
         temp: function(data) {
-            // 温度也需要取反
+            // 温度也需要变反
             return (parseInt(data.reverse().join(""), 16)/16).toFixed(2);
         },
         literal: function(data, separator) {
@@ -320,10 +329,10 @@ define(function() {
 
     //把手机时间同步到记录仪中，04 更新记录仪中时间
     api.syncTime = function(peripheral, onSuccess, onError, onProgress) {
-        api.execute(peripheral, "7F 00 10 ED " + api.translator.timestamp2Hex(Math.floor(new Date().getTime() / 1000)), true, function(data) {
+        api.execute(peripheral, api.insertCommandSum("7F 04 04 00 " + api.translator.timestamp2Hex(Math.floor(new Date().getTime() / 1000))), true, function(data) {
             // [0x7F][LEN][0x04][SUM][4_TIME]
             var json = {
-                time: api.translator.timestamp(data.slice(4,8))
+                time: api.translator.int(data.slice(4,8))
             }
             onSuccess && onSuccess(json);
         }, onError, onProgress);
@@ -338,7 +347,7 @@ define(function() {
                 module: api.translator.ascii(data.slice(4,12)),
                 id: api.translator.ascii(data.slice(12,20)),
                 key: api.translator.ascii(data.slice(20,28)),
-                time: api.translator.timestamp(data.slice(28,32)),
+                time: api.translator.int(data.slice(28,32)),
                 ver: "v" + api.translator.float(data.slice(32,34)),
                 voltage: api.translator.int(data.slice(34,36)) + "mV",
                 name: api.translator.ascii(data.slice(36,44))

@@ -20,15 +20,24 @@ define(function(require, exports, module) {
         componentWillMount: function() {
             var that = this;
             var deviceId = this.props.deviceId;
-            loop = true;
-            this.getBleStatus(deviceId, afterGetBleStatus);
+            
+            // 同步手机时间到模块
+            this.syncTime(deviceId, afterSyncTime);
+
+            function afterSyncTime() {
+                loop = true;
+                that.getBleStatus(deviceId, afterGetBleStatus);
+                // setTimeout(function() {
+                //     dxsdk.sys.disconnect(deviceId, function() {
+                //         that.getBleStatus(deviceId, afterGetBleStatus);
+                //     });
+                // }, 2000);
+            }
             function afterGetBleStatus() {
-                if (loop) {
-                    that.getBleTempData(deviceId, afterGetBleTempData);
-                }
+                loop && that.getBleTempData(deviceId, afterGetBleTempData);
             }
             function afterGetBleTempData() {
-                that.getBleStatus(deviceId, afterGetBleStatus);
+                loop && that.getBleStatus(deviceId, afterGetBleStatus);
             }
         },
         getBleStatus: function(deviceId, afterSuccess) {
@@ -42,7 +51,8 @@ define(function(require, exports, module) {
                     that.setState({infoData: data});
                     afterSuccess && afterSuccess();
                 }, function(errorMsg) {
-                    app.alert("基本信息获取失败，" + errorMsg);
+                    //断开一瞬间可能会提示失败，设置成断开后不提示
+                    loop && app.alert("基本信息获取失败，" + errorMsg + "，请返回后重新连接");
                 }, function(progress) {
                     that.setState({infoProgress: progress});
                 });
@@ -56,7 +66,7 @@ define(function(require, exports, module) {
                     that.setState({tempData: data});
                     afterSuccess && afterSuccess();
                 }, function(errorMsg) {
-                    app.alert("温度数据获取失败，" + errorMsg);
+                    app.alert("温度数据获取失败，" + errorMsg + "，请返回后重新连接");
                 }, function(progress) {
                     that.setState({tempProgress: progress});
                 });
