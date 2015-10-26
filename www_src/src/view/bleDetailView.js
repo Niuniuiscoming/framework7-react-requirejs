@@ -6,6 +6,7 @@ define(function(require, exports, module) {
     var toolkit = require("common/toolkit");
 
     var currentPeripheral = null;
+    var loop = true;
 
     var PageContent = React.createClass({
         getInitialState: function() {
@@ -19,10 +20,12 @@ define(function(require, exports, module) {
         componentWillMount: function() {
             var that = this;
             var deviceId = this.props.deviceId;
-
+            loop = true;
             this.getBleStatus(deviceId, afterGetBleStatus);
             function afterGetBleStatus() {
-                that.getBleTempData(deviceId, afterGetBleTempData);
+                if (loop) {
+                    that.getBleTempData(deviceId, afterGetBleTempData);
+                }
             }
             function afterGetBleTempData() {
                 that.getBleStatus(deviceId, afterGetBleStatus);
@@ -202,6 +205,7 @@ define(function(require, exports, module) {
 
             // 回退前先断开连接
             $$("#ble-detail-back").click(function(){
+                loop = false;
                 dxsdk.sys.disconnect(deviceId, function() {
                     app.mainView.router.back();
                 });

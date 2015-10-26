@@ -2,7 +2,7 @@ define(["common/dx-sdk"], function(dxsdk) {
 
     window.$$ = Dom7;
 
-    $$(document).on('pageBeforeInit', function (e) {
+    $$(document).on('pageInit', function (e) {
         var page = e.detail.page;
         load(page.name, page.query);
     });
