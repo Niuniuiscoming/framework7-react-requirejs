@@ -41,7 +41,9 @@
     require.config({
         baseUrl: 'build'
     });
-    require(['app']);
+    require(['app'], function(app) {
+    		app.load('default');
+    });
   </script>
 </body>
 </html>

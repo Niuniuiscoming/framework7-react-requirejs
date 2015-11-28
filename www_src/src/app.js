@@ -2,13 +2,16 @@ define(["common/dx-sdk"], function(dxsdk) {
 
     window.$$ = Dom7;
 
-    $$(document).on('pageInit', function (e) {
+    $$(document).on('pageAfterAnimation', function (e) {
         var page = e.detail.page;
         load(page.name, page.query);
     });
 
     var f7 = new Framework7({
-        pushState: true
+        pushState: true,
+        modalTitle: '提示',
+        modalButtonOk: '确定',
+        modalButtonCancel: '取消'
     });
 
     var mainView = f7.addView('.view-main', {
@@ -63,6 +66,9 @@ define(["common/dx-sdk"], function(dxsdk) {
 
     //HTML绑定对应的react view模块
     function load(moduleName, query) {
+    	if (!query) {
+    		query = {};
+    	}
         require(['view/' + moduleName + 'View'], function(module) {
             module.init(query);
         });
