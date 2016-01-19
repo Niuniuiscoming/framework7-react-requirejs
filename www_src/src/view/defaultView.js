@@ -2,10 +2,12 @@ define(["app", "plugins"], function(app, plugins) {
 	var PageContent = React.createClass({
 		render: function() {
 			var blePath = app.path('ble');
+			var blePrinterPath = app.path('blePrinter');
 			return (
 				<div className="page-content">
 					<p><a href="#" className="button" onClick={this.openActivity}>打开原生Activity</a></p>
-					<p><a href={blePath} className="button">打开蓝牙测试</a></p>
+					<p><a href={blePath} className="button">蓝牙温度测试</a></p>
+					<p><a href={blePrinterPath} className="button">蓝牙打印测试</a></p>
 				</div>
 			);
 		},
