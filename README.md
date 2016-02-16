@@ -6,6 +6,7 @@ Cordova插件开发测试项目
 #####包含已测试的插件:
 - [cordova-plugins-activity](https://github.com/cfansimon/cordova-plugins-activity)
 - [cordova-plugin-ble-central](https://github.com/don/cordova-plugin-ble-central)
+- [BluetoothSerial](https://github.com/don/BluetoothSerial)
 
 #####部分截图
 <img src="https://raw.githubusercontent.com/cfansimon/framework7-react-requirejs/master/screenshot/Screenshot_2015-09-10-11-49-50.png" width="200px" />
@@ -15,6 +16,9 @@ Cordova插件开发测试项目
 
 #####开发流程:
 -提前条件：自行安装nodejs、grunt、cordova-cli、babel
+-注：babel安装方式有变化，如下：
+-npm install --global babel-cli
+-npm install babel-preset-react
 
 先安装nodejs依赖
 ```bash
@@ -22,7 +26,7 @@ $ npm install
 ```
 shell进入www_src目录，启动jsx即时编译，--compact 压缩(变量名不压缩) --no-comments 删除注释
 ```bash
-babel --watch src/ --out-dir build/ --compact --no-comments
+babel --presets react src --watch --out-dir build --compact --no-comments
 ```
 修改代码过程中运行以下命令，会自动刷新浏览器显示结果
 ```bash
