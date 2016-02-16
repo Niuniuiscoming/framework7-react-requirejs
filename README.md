@@ -15,10 +15,10 @@ Cordova插件开发测试项目
 <img src="https://raw.githubusercontent.com/cfansimon/framework7-react-requirejs/master/screenshot/Screenshot_2015-10-20-23-43-41.png" width="200px" />
 
 #####开发流程:
--提前条件：自行安装nodejs、grunt、cordova-cli、babel
--注：babel安装方式有变化，如下：
--npm install --global babel-cli
--npm install babel-preset-react
+- 提前条件：自行安装nodejs、grunt、cordova-cli、babel
+- 注：babel安装方式有变化，如下：
+- npm install --global babel-cli
+- npm install babel-preset-react
 
 先安装nodejs依赖
 ```bash
