@@ -151,7 +151,7 @@ define(["app", "common/pubsub", "common/jq-printer-sdk"], function(app, pubsub, 
             
             this.connect(this.props.deviceId, function() {
                 printersdk.api.printTable(head, data, function() {
-                    printersdk.sys.disconnect();
+                    printersdk.sys.disconnect(); //每次打印后需要断开
                     alert('ok');
                 });
             });

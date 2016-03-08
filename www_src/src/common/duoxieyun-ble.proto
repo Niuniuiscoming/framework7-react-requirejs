@@ -1,0 +1,128 @@
+// app --> device
+// 控制命令
+// 带*命令可后期实现，看代码空间大小
+// -------+-----------------+-----------------+---------------------------------
+// 命令号 | 描述            | 参数            | 回复
+// -------+-----------------+-----------------+---------------------------------
+//  0*    | 设置设备序列号  | ParamString     | DevResponse包 `Y0000001`
+// -------+-----------------+-----------------+---------------------------------
+//  1*    | 设置SSID名称    | ParamString     | DevResponse包 `DX-Y0000001`
+// -------+-----------------+-----------------+---------------------------------
+//  2*    | 设备MAC地址     | ParamString     | DevResponse包 `005056C00002`
+// -------+-----------------+-----------------+---------------------------------
+//  3     | 参数设置        | DevCfg          | DevResponse包
+// -------+-----------------+-----------------+---------------------------------
+//  4     | 获取状态        | ----            | DevStatus包（精简模式,不带optional）
+// -------+-----------------+-----------------+---------------------------------
+//  5     | 获取配置参数    | ----            | DevCfg包
+// -------+-----------------+-----------------+---------------------------------
+//  6     | 时间同步        | ParamUint32     | DevResponse包
+// -------+-----------------+-----------------+---------------------------------
+//  7     | 启动记录        | ---             | DevResponse包
+// -------+-----------------+-----------------+---------------------------------
+//  8     | 停止记录        | ---             | DevResponse包
+// -------+-----------------+-----------------+---------------------------------
+//  9     | 获取实时温度值  | ---             | DevStatus包
+// -------+-----------------+-----------------+---------------------------------
+//  10    | 获取历史数据    | ---             | 启动数据上传流程
+// -------+-----------------+-----------------+---------------------------------
+//  11    | 获取DevCfgFixed | ---             | DevCfgFixed包
+// -------+-----------------+-----------------+---------------------------------
+//
+//  99    | 进入OTA模式     | ---             | DevStatus包
+//
+//
+// 数据上传流程:
+//               device           --------------           app
+//  1.           ----                                 下发命令10，获取历史数据
+//  2.  数据点开始打包，发送DevDataPack包             ----
+//  3.  继续发送DevDataPack包
+//       ....
+//  4.  停止发送数据                                  ----
+// 
+//  注意: 但中间传输过程中出现连接断开，则设备需要恢复正常模式，等下次app重新启动
+//        获取历史数据为止。
+//
+message DevCmd {
+    required uint32 Cmd = 1;                     // 命令号
+    optional uint32 ParamUint32 = 2;             // Uint32类型参数
+    optional int32  ParamInt32 = 3;              // Int32类型参数
+    optional bytes  ParamString = 4;             // 字符串类型参数
+    optional DevCfg DevCfg = 5;                  // 配置参数
+}
+
+// device --> app
+// 设备应答包
+// 在设备接收到app下发的命令后，如果执行正确，则返回ErrCode = 200， 否则返回
+// 对应的错误内容，错误号由device自己定义，用于调试分析使用
+message DevResponse {
+    required uint32 ErrCode = 1 [default = 200]; // 错误号
+}
+
+// 设备的配置参数, 需要写入flash中
+message DevCfg {
+    required bytes  Content = 1;                 // 发货信息，接受16个中文(UTF-8,一个汉字占3个字节)，`张三-李四`
+    required uint32 LogInterval = 2;             // 记录间隔，单位秒
+    required int32  HighThreshold = 3;           // 温度上限，单位摄氏度
+    required uint32 HighToleranceTime = 4;       // 上限容忍时间，单位分钟
+    required int32  LowThreshold = 5;            // 温度下限，单位度
+    required uint32 LowToleranceTime = 6;        // 下限容忍时间，单位分钟
+}
+
+// 设备的固有信息，出厂后不可修改，工厂模式可修改
+// 工厂模式指通过串口或其他方式写入数据固化到模块内部
+message DevCfgFixed {
+    required bytes  DeviceId = 1;                // 设备序列号，由多协云统一提供
+    required string SoftwareVersion = 2;         // 软件版本 如"V1.0.0"(编译程序时确定，固化在固件中)
+    optional bytes  SSID = 3;                    // 设备发现的SSID名称，SSID格式为 "DX-DeviceId"
+    optional bytes  MAC = 4;                     // 设备MAC地址
+}
+
+// 设备状态
+message DevStatus {
+    required uint32  StartLogTime = 1;           // 开始记录时间, UTC时间，1970.1.1 00:00:00 到此秒数
+    required uint32  CurrentTime = 2;            // 当前记录时间, UTC时间，1970.1.1 00:00:00 到此秒数
+    required bool    IsLogging = 3;              // 当前是否记录模式，true是(记录中)，false否(停止记录)
+    required uint32  Voltage = 4;                // 电量 0-100  表示0%-100%,分辨率不小于5%
+    required uint32  LoggedCnt = 5;              // 当前记录条数(记录中)或上次记录的条数(停止记录)
+    required int32   Temperature = 6;            // 当前温度, 保留一位小数，扩大10倍，整型处理
+    required uint32  ExceptionCode = 7;          // 异常代码，不用时为0
+    optional DevCfg  DevCfg = 8;                 // 设备当前配置参数, 在命令为4时 required, 命令为9时，不传输
+    optional DevCfgFixed DevCfgFixed = 9;        // 设备固有信息, 在命令为4时 required, 命令为9时，不传输
+}
+
+// device --> app
+// 数据点打包
+message DevDataPack {
+    required uint32 SerialNum = 1;               // 序号从最大值开始递减，减到0表示传输完成
+    required bytes DevData = 2;                  // 原始数据List
+}
+
+// weixin wrapped
+
+message BaseRequest {
+}
+
+message BasePush {
+}
+
+// 设备发送数据给微信或厂商
+// 设备数据类型
+enum EmDeviceDataType {
+    EDDT_manufatureSvr = 0;                      // 厂商自定义数据
+    EDDT_wxWristBand = 1;                        // 微信公众平台手环数据
+    EDDT_wxDeviceHtmlChatView = 10001;           // 微信客户端设备 html5 会话界面数据
+}
+
+message SendDataRequest {
+    required BaseRequest BaseRequest = 1;
+    required bytes Data = 2;
+    optional EmDeviceDataType Type = 3;          // 数据类型
+}
+
+// 微信或厂商发送数据给蓝牙设备
+message RecvDataPush {
+    required BasePush BasePush = 1;
+    required bytes Data = 2;
+    optional EmDeviceDataType Type = 3;          // 数据类型
+}

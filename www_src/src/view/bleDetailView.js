@@ -2,8 +2,8 @@ define(function(require, exports, module) {
 
     var app = require("app");
     var pubsub = require("common/pubsub");
-    var dxsdk = require("common/dx-sdk");
     var toolkit = require("common/toolkit");
+    var dxsdk = require("common/dx-sdk");
 
     var currentPeripheral = null;
     var loop = true;
@@ -22,24 +22,22 @@ define(function(require, exports, module) {
             var deviceId = this.props.deviceId;
             loop = true;
 
+            // that.getBleTempData(deviceId);
             // 同步手机时间到模块
             this.syncTime(deviceId, function() {
-                that.getBleStatus(deviceId, function() {
+                that.getBleCfgFixed(deviceId, function() {
+                    that.getBleTempData(deviceId);
                     setInterval(function() {
                         loop && that.getBleTempData(deviceId);
-                    },1000*3);
+                    },1000*30);
                 });
             });
-
         },
-        getBleStatus: function(deviceId, afterSuccess) {
+        getBleCfgFixed: function(deviceId, afterSuccess) {
             var that = this;
             this.getConnection(deviceId, function(peripheral) {
                 //获取设备基本信息
-                dxsdk.api.status(peripheral, function(data) {
-                    if (data.time) { //格式化时间戳
-                        data.time = toolkit.date('Y-m-d H:i:s', data.time);
-                    }
+                dxsdk.api.cfgFixed(peripheral, function(data) {
                     that.setState({infoData: data});
                     afterSuccess && afterSuccess();
                 }, function(errorMsg) {
@@ -68,14 +66,12 @@ define(function(require, exports, module) {
             app.preloader.show("同步时间...");
             this.getConnection(deviceId, function(peripheral) {
                 // 每次连接后把本地时间同步到记录仪
-                dxsdk.api.syncTime(peripheral, function(data) {
-                    if (data.time) { //格式化时间戳
-                        data.time = toolkit.date('Y-m-d', data.time);
-                    }
+                dxsdk.api.syncTime(peripheral, function() {
                     app.preloader.hide();
                     onComplete && onComplete();
-                }, function() {
+                }, function(msg) {
                     app.preloader.hide();
+                    console.log(msg);
                     app.alert('时间同步失败，请返回重试');
                     onComplete && onComplete();
                 });
@@ -110,48 +106,34 @@ define(function(require, exports, module) {
                 app.alert('连接中断，请返回后重新连接');
             });
         },
-        handleReset: function() {
-            var that = this;
-            app.f7.confirm('此操作会清空所有数据并重启设备，是否继续?', function () {
-                that.getConnection(that.props.deviceId, function(peripheral) {
-                    // 重启并清空历史数据
-                    dxsdk.api.reset(peripheral);
-                    app.alert('设备即将重启，请返回重新连接');
-                });
-            });
-        },
         handleUpload: function() {
             var that = this;
-            if (that.state.tempData['isRecording']) {
-                app.alert('设备正在录制温度，请先停止录制再上传数据');
-            } else {
-                this.getConnection(that.props.deviceId, function(peripheral) {
-                    loop = false;
-                    setTimeout(function() { //
-                        // 先获取历史数据
-                        if (that.state.tempData['num']) {
-                            dxsdk.api.historyData(peripheral, that.state.tempData['num'], function(data) {
-                                var dataWithTime = [];
-                                for(var i in data) {
-                                    dataWithTime[i] = {
-                                        temp: data[i],
-                                        time: that.state.tempData['logTime'] + that.state.tempData['intval']*i
-                                    }
+            this.getConnection(that.props.deviceId, function(peripheral) {
+                loop = false;
+                setTimeout(function() { //
+                    // 先获取历史数据，新版蓝牙中num已经不作为真实数据总数的依据
+                    if (that.state.tempData['num']) { 
+                        dxsdk.api.historyData(peripheral, function(data) {
+                            var dataWithTime = [];
+                            for(var i in data) {
+                                dataWithTime[i] = {
+                                    temp: data[i],
+                                    time: that.state.tempData['logTime'] + that.state.tempData['intval']*i
                                 }
-                                console.log('dataWithTime', dataWithTime);
-                            }, function(errorMsg) {
-                                app.alert("温度历史数据获取失败，" + errorMsg + "，请返回后重新连接");
-                            }, function(progress) {
-                                console.log('progress', progress);
-                                // that.setState({tempProgress: progress});
-                            });
-                        } else {
-                            app.alert('当前历史记录条数为空，无法上传');
-                        }
-                        
-                    }, 1000*3);
-                });
-            }
+                            }
+                            console.log('dataWithTime', dataWithTime);
+                        }, function(errorMsg) {
+                            app.alert("温度历史数据获取失败，" + errorMsg + "，请返回后重新连接");
+                        }, function(progress) {
+                            // console.log('progress', progress);
+                            // that.setState({tempProgress: progress});
+                        });
+                    } else {
+                        app.alert('当前历史记录条数为空，无法上传');
+                    }
+                    
+                }, 1000*3);
+            });
         },
         render: function() {
             return (
@@ -160,7 +142,6 @@ define(function(require, exports, module) {
                     <CurrentTemp data={this.state.tempData} progress={this.state.tempProgress}/>
                     <div className="content-block row">
                       <div className="col-50">
-                        <a className="button button-big button-red" onClick={this.handleReset}>重启设备</a>
                       </div>
                       <div className="col-50">
                         <a className="button button-big button-green" onClick={this.handleUpload}>上传数据</a>
@@ -183,9 +164,9 @@ define(function(require, exports, module) {
             return {
                 fields: [
                     {key: "id", title: "设备id"},
-                    {key: "time", title: "设备日期"},
                     {key: "ver", title: "固件版本"},
-                    {key: "voltage", title: "设备电压"}
+                    {key: "ssid", title: "SSID"},
+                    {key: "mac", title: "MAC"}
                 ]
             };
         },
