@@ -14,6 +14,7 @@ define(function(require, exports, module) {
                 infoData: {},
                 infoProgress: [0, 100],
                 tempData: {},
+                cfgData: {},
                 tempProgress: [0, 100]
             };
         },
@@ -22,14 +23,14 @@ define(function(require, exports, module) {
             var deviceId = this.props.deviceId;
             loop = true;
 
-            // that.getBleTempData(deviceId);
-            // 同步手机时间到模块
-            this.syncTime(deviceId, function() {
-                that.getBleCfgFixed(deviceId, function() {
-                    that.getBleTempData(deviceId);
-                    setInterval(function() {
-                        loop && that.getBleTempData(deviceId);
-                    },1000*30);
+            this.syncTime(deviceId, function() { // 同步手机时间到模块
+                that.getBleCfgFixed(deviceId, function() { //获取固件信息
+                    that.getBleCfg(deviceId, function() { //获取配置信息，如记录开始时间、间隔等
+                        that.getBleTempData(deviceId); //循环获取实时温度
+                        setInterval(function() {
+                            loop && that.getBleTempData(deviceId);
+                        },1000*30);
+                    });
                 });
             });
         },
@@ -42,7 +43,21 @@ define(function(require, exports, module) {
                     afterSuccess && afterSuccess();
                 }, function(errorMsg) {
                     //断开一瞬间可能会提示失败，设置成断开后不提示
-                    loop && app.alert("基本信息获取失败，" + errorMsg + "，请返回后重新连接");
+                    loop && app.alert("记录仪基本信息获取失败，" + errorMsg + "，请返回后重新连接");
+                }, function(progress) {
+                    that.setState({infoProgress: progress});
+                });
+            });
+        },
+        getBleCfg: function(deviceId, afterSuccess) {
+            var that = this;
+            this.getConnection(deviceId, function(peripheral) {
+                //获取设备基本信息
+                dxsdk.api.cfg(peripheral, function(data) {
+                    that.setState({cfgData: data});
+                    afterSuccess && afterSuccess();
+                }, function(errorMsg) {
+                    app.alert("记录仪配置信息获取失败，" + errorMsg + "，请返回后重新连接");
                 }, function(progress) {
                     that.setState({infoProgress: progress});
                 });
@@ -118,7 +133,7 @@ define(function(require, exports, module) {
                             for(var i in data) {
                                 dataWithTime[i] = {
                                     temp: data[i],
-                                    time: that.state.tempData['logTime'] + that.state.tempData['intval']*i
+                                    time: that.state.tempData['logTime'] + that.state.cfgData['logInterval']*i
                                 }
                             }
                             console.log('dataWithTime', dataWithTime);
@@ -266,6 +281,7 @@ define(function(require, exports, module) {
             $$("#ble-detail-back").click(function(){
                 loop = false;
                 dxsdk.sys.disconnect(deviceId, function() {
+                    currentPeripheral = null; //退出后清空缓存
                     app.mainView.router.back();
                 });
             });

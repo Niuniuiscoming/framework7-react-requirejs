@@ -356,18 +356,19 @@ define(function(require, exports, module) {
             var offset = msgDec.Data.offset;
             var limit = msgDec.Data.limit;
             var obj = DevCfg.decode(msgDec.Data.buffer.slice(offset, limit));
-            console.log('cfg obj');
-            console.log(obj);
-
-
-            // var json = {
-            //     id: uintToString(obj.DeviceId.buffer.slice(obj.DeviceId.offset, obj.DeviceId.limit)),
-            //     ver: obj.SoftwareVersion,
-            //     ssid: uintToString(obj.SSID.buffer.slice(obj.SSID.offset, obj.SSID.limit)),
-            //     mac: uintToString(obj.MAC.buffer.slice(obj.MAC.offset, obj.MAC.limit))
-            // };
-            // console.log(json);
-            // onSuccess && onSuccess(json);
+            // console.log('cfg obj');
+            // console.log(obj);
+            
+            var json = {
+                content: uintToString(obj.Content.buffer.slice(obj.Content.offset, obj.Content.limit)), //发货信息,接受16个中文(UTF-8,一个汉字占3个字节),`张三-李四`
+                logInterval: obj.LogInterval, //记录间隔，单位秒
+                highThreshold: obj.HighThreshold, //温度上限，单位摄氏度
+                highToleranceTime: obj.HighToleranceTime, //上限容忍时间,单位分钟
+                lowThreshold: obj.LowThreshold, //温度下限，单位摄氏度
+                lowToleranceTime: obj.LowToleranceTime //下限容忍时间,单位分钟
+            };
+            console.log(json);
+            onSuccess && onSuccess(json);
         }, onError, onProgress);
       
     };
@@ -494,55 +495,60 @@ define(function(require, exports, module) {
             return json;
         }
 
-        onProgress && onProgress([1, 100]); //模拟一点进度
 
-        var totalDataList = [];
-        //先打开监听通道
-        var currentTotalData = [];
-        var currentTotalLength = 0;
+        function exec() {
 
-        sys.startNotify(peripheral, function(data) {
-            // console.log("notify");
-            // console.log(data);
-            
-            // 蓝牙数据传输每组20条记录，多于20条会自动拆分成多个Notify发送
-            // 累加每次Notify发送过来的数据
-            currentTotalData = currentTotalData.concat(data);
-            if (currentTotalData.length < 4) { //返回数据至少有4位
-                onError && onError("模块返回的数据长度有误，当前返回值为" + currentTotalData.join(" "));
-            } else {
-                // 计算本次报文总长度，按照多协文档第2位是长度位，长度为不含前面4位，所以加4
-                currentTotalLength = parseInt(currentTotalData[2], 16)*16 + parseInt(currentTotalData[3], 16);
-                // console.log(currentTotalLength);
-                onProgress && onProgress([currentTotalData.length, currentTotalLength]);
-                if (currentTotalLength == currentTotalData.length) {
-                    //一个历史记录包接收完整后就先解析
-                    // console.log(currentTotalData);
-                    currentTotalData = currentTotalData.slice(8); //去掉前8位
-                    //解析本次的数据包
-                    var currentDataPackage = decodeHistoryData(arrayToBytes(currentTotalData));
-                    // totalDataList.push(currentDataPackage.data);
-                    totalDataList = totalDataList.concat(currentDataPackage.data);
-                    currentTotalData = []; //清空本次数据
-                    // console.log(totalDataList);
-                    // console.log('================');
-                    if (currentDataPackage.num == 0) {
-                        console.log(totalDataList);
-                        console.log('---finished---');
-                        onSuccess && onSuccess(totalDataList);
-                        sys.stopNotify(peripheral);
+            onProgress && onProgress([1, 100]); //模拟一点进度
+
+            var totalDataList = [];
+            //先打开监听通道
+            var currentTotalData = [];
+            var currentTotalLength = 0;
+
+            sys.startNotify(peripheral, function(data) {
+                // console.log("notify");
+                // console.log(data);
+                
+                // 蓝牙数据传输每组20条记录，多于20条会自动拆分成多个Notify发送
+                // 累加每次Notify发送过来的数据
+                currentTotalData = currentTotalData.concat(data);
+                if (currentTotalData.length < 4) { //返回数据至少有4位
+                    onError && onError("模块返回的数据长度有误，当前返回值为" + currentTotalData.join(" "));
+                } else {
+                    // 计算本次报文总长度，按照多协文档第2位是长度位，长度为不含前面4位，所以加4
+                    currentTotalLength = parseInt(currentTotalData[2], 16)*16 + parseInt(currentTotalData[3], 16);
+                    // console.log(currentTotalLength);
+                    onProgress && onProgress([currentTotalData.length, currentTotalLength]);
+                    if (currentTotalLength == currentTotalData.length) {
+                        //一个历史记录包接收完整后就先解析
+                        // console.log(currentTotalData);
+                        currentTotalData = currentTotalData.slice(8); //去掉前8位
+                        //解析本次的数据包
+                        var currentDataPackage = decodeHistoryData(arrayToBytes(currentTotalData));
+                        // totalDataList.push(currentDataPackage.data);
+                        totalDataList = totalDataList.concat(currentDataPackage.data);
+                        currentTotalData = []; //清空本次数据
+                        // console.log(totalDataList);
+                        // console.log('================');
+                        if (currentDataPackage.num == 0) {
+                            console.log(totalDataList);
+                            console.log('---finished---');
+                            onSuccess && onSuccess(totalDataList);
+                            sys.stopNotify(peripheral);
+                        }
                     }
                 }
-            }
-        }, function(errorMsg){
-            onError && onError("数据接收失败:" + errorMsg);
-        });
+            }, function(errorMsg){
+                onError && onError("数据接收失败:" + errorMsg);
+            });
 
-        sys.write(peripheral, buildCommandBuffer(), function() {
-        }, function(errorMsg) {
-            onError && onError("指令\"" + buffer + "\"发送失败:" + errorMsg);
-        });
+            sys.write(peripheral, buildCommandBuffer(), function() {
+            }, function(errorMsg) {
+                onError && onError("指令\"" + buffer + "\"发送失败:" + errorMsg);
+            });
+        }
       
+        exec();
     }
 
     return {
