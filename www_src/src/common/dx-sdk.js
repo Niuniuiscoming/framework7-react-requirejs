@@ -93,6 +93,16 @@ define(function(require, exports, module) {
         return hexArr;
     }
 
+    //数组转arraybuffer
+    function toArrayBuffer(buffer) {
+        var ab = new ArrayBuffer(buffer.length);
+        var view = new Uint8Array(ab);
+        for (var i = 0; i < buffer.length; ++i) {
+            view[i] = buffer[i];
+        }
+        return ab;
+    }
+
     //ArrayBufferToString
     function uintToString(uintArray) {
         function pad(n) {
@@ -106,6 +116,27 @@ define(function(require, exports, module) {
         str = decodeURIComponent(str);
         return str;
     }
+
+    //字符转数组
+    function stringToUtf8ByteArray(str) {
+        str = str.replace(/\r\n/g, '\n');
+        var out = [],
+            p = 0;
+        for (var i = 0; i < str.length; i++) {
+            var c = str.charCodeAt(i);
+            if (c < 128) {
+                out[p++] = c;
+            } else if (c < 2048) {
+                out[p++] = (c >> 6) | 192;
+                out[p++] = (c & 63) | 128;
+            } else {
+                out[p++] = (c >> 12) | 224;
+                out[p++] = ((c >> 6) & 63) | 128;
+                out[p++] = (c & 63) | 128;
+            }
+        }
+        return out;
+    };
 
     //解析温度
     function analysisTemp(oldArray) {
@@ -211,7 +242,24 @@ define(function(require, exports, module) {
     sys.write = function(peripheral, data, onSuccess, onError) {
         var res = getCharacteristicByFlag(peripheral.characteristics, 'write');
         if (typeof res == "object") {
-            window.ble.write(peripheral.id, res.service, res.characteristic, data, onSuccess, onError);
+            var arr = bytesToArray(data);
+            var chunks = []; //BLE每组最多传输20字符
+            for(var i=0,len=arr.length;i<len;i+=20){
+               chunks.push(arr.slice(i,i+20));
+            }
+
+            function _sendChunkData(data, i, length) {
+                if (i < length - 1) {
+                    window.ble.write(peripheral.id, res.service, res.characteristic, arrayToBytes(data[i]), function() {
+                        _sendChunkData(data, ++i, length);
+                    }, onError);
+                } else {
+                    window.ble.write(peripheral.id, res.service, res.characteristic, arrayToBytes(data[i]), onSuccess, onError);
+                }
+            }
+
+            _sendChunkData(chunks, 0, chunks.length);
+            
         } else {
             onError && onError(res);
         }
@@ -287,7 +335,7 @@ define(function(require, exports, module) {
                 onSuccess && onSuccess();
             }
         }, function(errorMsg) {
-            onError && onError("指令\"" + command + "\"发送失败:" + errorMsg);
+            onError && onError("指令\"" + bytesToArray(command).join(" ") + "\"发送失败:" + errorMsg);
         });
     }
 
@@ -373,7 +421,61 @@ define(function(require, exports, module) {
       
     };
 
-    //06 更新记录仪中时间
+    //3 参数设置
+    api.setCfg = function(peripheral, params, onSuccess, onError, onProgress) {
+
+        function _serialize(content, logInterval, highThreshold, highToleranceTime, lowThreshold, lowToleranceTime) {
+            var devCmd = new DevCmd();
+            devCmd.Cmd = 3;
+            var devCfg = new DevCfg();
+            var utf8_buffer = stringToUtf8ByteArray(content);
+            var arraybuffer = toArrayBuffer(utf8_buffer);
+            devCfg.Content = arraybuffer;
+            devCfg.LogInterval = logInterval;
+            devCfg.HighThreshold = highThreshold;
+            devCfg.HighToleranceTime = highToleranceTime;
+            devCfg.LowThreshold = lowThreshold;
+            devCfg.LowToleranceTime = lowToleranceTime;
+            devCmd.DevCfg = devCfg;
+            var buffer = devCmd.toArrayBuffer();
+            var msgDec = DevCmd.decode(buffer);
+            var offset = msgDec.DevCfg.Content.offset;
+            var limit = msgDec.DevCfg.Content.limit;
+            return buffer;
+        }
+
+        var content = params.content ? params.content : 'duoxieyun';
+        var logInterval = params.logInterval ? params.logInterval : 5;
+        var highThreshold = params.highThreshold ? params.highThreshold : 30;
+        var highToleranceTime = params.highToleranceTime ? params.highToleranceTime : 5;
+        var lowThreshold = params.lowThreshold ? params.lowThreshold : 1;
+        var lowToleranceTime = params.lowToleranceTime ? params.lowToleranceTime : 5;
+
+        var recvDataPush = new RecvDataPush();
+        var basePush = new BasePush();
+        recvDataPush.Data = _serialize(content, logInterval, highThreshold, highToleranceTime, lowThreshold, lowToleranceTime);
+        recvDataPush.BasePush = basePush;
+        var data = recvDataPush.toArrayBuffer();
+        var buffer = setHeader(data);
+        console.log(arrToHex(new Uint8Array(buffer)));
+
+        api.execute(peripheral, buffer, true, function(data) {
+            // console.log('received');
+            // console.log(new Uint8Array(data));
+            var msgDec = SendDataRequest.decode(data);
+            var offset = msgDec.Data.offset;
+            var limit = msgDec.Data.limit;
+            var obj = DevResponse.decode(msgDec.Data.buffer.slice(offset, limit));
+            console.log(obj);
+            if (obj.ErrCode == 200) {
+                onSuccess && onSuccess(true);
+            } else {
+                onError('参数设置异常，errCode:' + obj.ErrCode);
+            }
+        }, onError, onProgress);
+    };
+
+    //6 更新记录仪中时间
     api.syncTime = function(peripheral, onSuccess, onError, onProgress) {
 
         // 获取手机时间

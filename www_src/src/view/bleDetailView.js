@@ -54,6 +54,8 @@ define(function(require, exports, module) {
             this.getConnection(deviceId, function(peripheral) {
                 //获取设备基本信息
                 dxsdk.api.cfg(peripheral, function(data) {
+                    console.log('读取的配置信息:');
+                    console.log(data);
                     that.setState({cfgData: data});
                     afterSuccess && afterSuccess();
                 }, function(errorMsg) {
@@ -121,6 +123,28 @@ define(function(require, exports, module) {
                 app.alert('连接中断，请返回后重新连接');
             });
         },
+        setCfg: function() {
+            var that = this;
+            var params = {
+                content: '哈哈镜',
+                logInterval: 199,
+                highThreshold: 35,
+                highToleranceTime: 5,
+                lowThreshold: -10,
+                lowToleranceTime: 5
+            };
+            this.getConnection(that.props.deviceId, function(peripheral) {
+                loop = false;
+                dxsdk.api.setCfg(peripheral, params, function() {
+                    console.log('参数设置成功');
+                    loop = true;
+                }, function(errorMsg) {
+                    app.alert("参数设置失败，" + errorMsg + "，请重试");
+                }, function(progress) {
+                    
+                });
+            });
+        },
         handleUpload: function() {
             var that = this;
             this.getConnection(that.props.deviceId, function(peripheral) {
@@ -157,6 +181,7 @@ define(function(require, exports, module) {
                     <CurrentTemp data={this.state.tempData} progress={this.state.tempProgress}/>
                     <div className="content-block row">
                       <div className="col-50">
+                        <a className="button button-big button-green" onClick={this.setCfg}>参数设置</a>
                       </div>
                       <div className="col-50">
                         <a className="button button-big button-green" onClick={this.handleUpload}>上传数据</a>
